@@ -1471,38 +1471,35 @@ public class MaterialCalendarView extends ViewGroup {
     protected void onDateClicked(@NonNull CalendarDay date, boolean nowSelected) {
         switch (selectionMode) {
             case SELECTION_MODE_MULTIPLE: {
+                adapter.setDateSelected(date, nowSelected);
                 dispatchOnDateSelected(date, nowSelected);
             }
             break;
             case SELECTION_MODE_RANGE: {
-                final int beforeSelectedSize = adapter.getSelectedDates().size();
-                adapter.setDateSelected(date, nowSelected);
+                final List<CalendarDay> currentSelection = adapter.getSelectedDates();
 
-                if (adapter.getSelectedDates().size() > 2) {
-                    clearSelectedDates(date, nowSelected);
-
-                } else if (adapter.getSelectedDates().size() == 2) {
-                    final List<CalendarDay> dates = adapter.getSelectedDates();
-                    final CalendarDay startDay;
-                    final CalendarDay endDay;
-
-                    if (dates.get(0).isAfter(dates.get(1))) {
-                        startDay = dates.get(1);
-                        endDay = dates.get(0);
+                if (currentSelection.size() == 0) {
+                    // Selecting the first date of a range
+                    adapter.setDateSelected(date, nowSelected);
+                    dispatchOnDateSelected(date, nowSelected);
+                } else if (currentSelection.size() == 1) {
+                    // Selecting the second date of a range
+                    final CalendarDay firstDaySelected = currentSelection.get(0);
+                    adapter.setDateSelected(date, nowSelected);
+                    if (firstDaySelected.equals(date)) {
+                        // Right now, we are not supporting a range of one day, so we are removing the day instead.
+                        dispatchOnDateSelected(date, nowSelected);
+                    } else if (firstDaySelected.isAfter(date)) {
+                        // Selecting a range, dispatching...
+                        dispatchOnRangeSelected(date, firstDaySelected);
                     } else {
-                        startDay = dates.get(0);
-                        endDay = dates.get(1);
+                        // Selecting a range, dispatching in reverse order...
+                        dispatchOnRangeSelected(firstDaySelected, date);
                     }
-
-                    final long daysSelected = daysPassedBetweenCalendarDays(startDay, endDay) + 1;
-
-                    if (daysSelected <= beforeSelectedSize) {
-                        clearSelectedDates(date, nowSelected);
-                    } else {
-                        dispatchOnRangeSelected(startDay, endDay);
-                    }
-
                 } else {
+                    // Clearing selection and making a selection of the new date.
+                    adapter.clearSelections();
+                    adapter.setDateSelected(date, nowSelected);
                     dispatchOnDateSelected(date, nowSelected);
                 }
             }
@@ -1517,15 +1514,6 @@ public class MaterialCalendarView extends ViewGroup {
         }
     }
 
-    private void clearSelectedDates(@NonNull CalendarDay date, boolean nowSelected) {
-        adapter.clearSelections();
-        adapter.setDateSelected(date, nowSelected);  //  re-set because adapter has been cleared
-        dispatchOnDateSelected(date, nowSelected);
-    }
-
-    private long daysPassedBetweenCalendarDays(CalendarDay startDay, CalendarDay endDay) {
-        return (endDay.getDate().getTime() - startDay.getDate().getTime()) / DAY_IN_MILLIS;
-    }
 
     /**
      * Select a fresh range of date including first day and last day.
